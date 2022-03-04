@@ -10,7 +10,7 @@ this type and attach the missing methods.
 from __future__ import print_function
 
 import sys
-from ctypes import c_int16, c_int32, c_uint32, c_float, create_string_buffer, byref
+from ctypes import c_int16, c_int32, c_uint32, c_float, create_string_buffer, byref, c_ulong
 from ctypes.util import find_library
 import collections
 import picosdk.constants as constants
@@ -418,6 +418,20 @@ class Library(object):
                 raise InvalidTimebaseError("get_timebase2 failed (%s)" % constants.pico_tag(status))
 
             return TimebaseInfo(timebase_id, time_interval.value, None, max_samples.value, segment_index)
+        elif hasattr(self, '_get_timebase2') and (
+                     len(self._get_timebase2.argtypes) == 6 and self._get_timebase2.argtypes[1] == c_ulong):
+            time_interval = c_float(0.0)
+            max_samples = c_int32(0)
+            status = self._get_timebase2(c_int16(handle),
+                                         c_ulong(timebase_id),
+                                         c_int32(no_of_samples),
+                                         byref(time_interval),
+                                         byref(max_samples),
+                                         c_uint32(segment_index))
+            if status != self.PICO_STATUS['PICO_OK']:
+                raise InvalidTimebaseError("get_timebase2 failed (%s)" % constants.pico_tag(status))
+
+            return TimebaseInfo(timebase_id, time_interval.value, None, max_samples.value, segment_index)
         else:
             raise NotImplementedError("not done other driver types yet")
 
@@ -479,6 +493,16 @@ class Library(object):
                                      c_uint32(segment_index),
                                      None,
                                      None)
+        elif len(self._run_block.argtypes) == 8:
+            status = self._run_block(c_int16(handle),
+                                     c_int32(pre_samples),
+                                     c_int32(post_samples),
+                                     c_uint32(timebase_id),
+                                     byref(time_indisposed),
+                                     c_uint32(segment_index),
+                                     None,
+                                     None)
+
             if status != self.PICO_STATUS['PICO_OK']:
                 raise InvalidCaptureParameters("run_block failed (%s)" % constants.pico_tag(status))
         else:
