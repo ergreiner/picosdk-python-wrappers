@@ -44,8 +44,9 @@ All are optional. Please specify the options which matter to you:
 TimebaseOptions = collections.namedtuple('TimebaseOptions', ['max_time_interval',
                                                              'no_of_samples',
                                                              'min_collection_time',
-                                                             'oversample'])
-_TIMEBASE_OPTIONS_DEFAULTS = (None, None, None, 1)
+                                                             'oversample',
+                                                             'requested_timebase'])
+_TIMEBASE_OPTIONS_DEFAULTS = (None, None, None, 1, None)
 TimebaseOptions.__new__.__defaults__ = _TIMEBASE_OPTIONS_DEFAULTS
 
 
@@ -164,6 +165,20 @@ class Device(object):
         # TODO binary search?
         last_error = None
         found_one_good = False
+        
+        # try to use the requested time base
+        if timebase_options.requested_timebase:
+            try:
+                timebase_info = self.driver.get_timebase(self, timebase_options.requested_timebase, 0,
+                                                         timebase_options.oversample)
+                found_one_good = True
+                if self._validate_timebase(timebase_options, timebase_info):
+                    return timebase_info
+            except InvalidTimebaseError as e:
+                if found_one_good:
+                    # we won't find a valid timebase.
+                    last_error = e
+        
         while True:
             try:
                 timebase_info = self.driver.get_timebase(self, timebase_id, 0, timebase_options.oversample)
@@ -208,6 +223,10 @@ class Device(object):
 
         # get_timebase
         timebase_info = self.find_timebase(timebase_options)
+        
+        #
+        print('Timebase info')
+        print(timebase_info)
 
         post_trigger_samples = timebase_options.no_of_samples
         pre_trigger_samples = 0
